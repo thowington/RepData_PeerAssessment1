@@ -1,25 +1,111 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Examining Physical Activity Data"
+output: html_document
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(ggplot2)
+library(knitr)
+```
 
-## Loading and preprocessing the data
+```{r, results = 'markup'} 
+activity_file = "activity.csv"
+act_data = read.csv(activity_file)
+summary(act_data)
+```
 
+### Histogram of total steps per day
+```{r, results = 'markup'}
+steps_each_day <- aggregate(act_data$steps, list(act_data$date), FUN = sum)
+colnames(steps_each_day) <- c("date","steps")
+hist(steps_each_day$steps, breaks = 10, xlab = "Number of steps per day", main="Histogram of steps per day")
+```
+```{r, echo=FALSE, results='markup'}
+png("hist1.png")
+hist(steps_each_day$steps, breaks = 10, xlab = "Number of steps per day", main="Histogram of steps per day")
+dev.off()
+```
+### Mean number of steps per day
+```{r, results = 'markup'}
+mean_steps_per_day <- mean(steps_each_day$steps, na.rm = TRUE)
+mean_steps_per_day
+```
+### Median number of steps per day
+```{r, results = 'markup'}
+median_steps_per_day<-median(steps_each_day$steps, na.rm = TRUE)
+median_steps_per_day
+```
+### Daily activity pattern
+```{r, results = 'markup'}
+steps_each_interval <- aggregate(act_data$steps, list(act_data$interval), FUN = mean, na.rm = TRUE)
+colnames(steps_each_interval) <- c("interval","steps")
+plot(steps_each_interval$interval, steps_each_interval$steps, type = "l", xlab = "Interval", ylab = "Average Number of Steps", col = "blue")
+```
+```{r, echo=FALSE, results='markup'}
+png("daily_pattern.png")
+plot(steps_each_interval$interval, steps_each_interval$steps, type = "l", xlab = "Interval", ylab = "Average Number of Steps", col = "blue")
+dev.off()
+```
+### Interval with greatest average number of steps:
+```{r, results = 'markup'}
+steps_each_interval[which(steps_each_interval$steps == max(steps_each_interval$steps)),1]
+```
+### Number of missing values in dataset
+```{r, results = 'markup'}
+length(act_data[which(is.na(act_data$steps)==TRUE),1])
+```
+### Fill in missing values with average value for that interval
+```{r, results = 'markup'}
+# These are the records without NA.
+act_data_complete <- act_data[which(is.na(act_data$steps)==FALSE),]
 
+# These are the records with NA.
+# Use the average steps by interval calculated above to fill in the NAs.
+act_data_filled <- merge(act_data[which(is.na(act_data$steps)==TRUE),], 
+                         steps_each_interval, by.x="interval", by.y = "interval", all=TRUE)
+act_data_filled <- act_data_filled[,c(1,3,4)]
+names(act_data_filled)[3] <- "steps"
 
-## What is mean total number of steps taken per day?
+# combine the two pieces
+act_data_revised <- rbind(act_data_complete, act_data_filled)
 
-
-
-## What is the average daily activity pattern?
-
-
-
-## Imputing missing values
-
-
-
-## Are there differences in activity patterns between weekdays and weekends?
+```
+### Histogram of total steps per day using revised data
+```{r, results = 'markup'}
+steps_each_day_revised <- aggregate(act_data_revised$steps, list(act_data$date), FUN = sum)
+colnames(steps_each_day_revised) <- c("date","steps")
+hist(steps_each_day_revised$steps, breaks = 10, xlab = "Number of steps each day", main = "Histogram of steps per day")
+```
+```{r, echo=FALSE, results='markup'}
+png("hist2.png")
+hist(steps_each_day_revised$steps, breaks = 10, xlab = "Number of steps each day", main = "Histogram of steps per day")
+dev.off()
+```
+### Mean Number of steps per day using revised data
+```{r, results = 'markup'}
+mean_steps_per_day_revised <- mean(steps_each_day_revised$steps)
+mean_steps_per_day_revised
+```
+### Median steps per day using revised data
+```{r, results = 'markup'}
+median_steps_per_day_revised<-median(steps_each_day_revised$steps)
+median_steps_per_day_revised
+```
+### Weekend versus weekday patterns
+```{r, results = 'markup'}
+act_data_weekdays <- act_data_revised
+act_data_weekdays$day <- weekdays(as.Date(as.character(act_data$date)))
+act_data_weekdays$day[which(act_data_weekdays$day %in% c("Monday", "Tuesday", "Wednesday","Thursday","Friday"))] <- "Weekday"
+act_data_weekdays$day[which(act_data_weekdays$day %in% c("Sunday","Saturday"))] <- "Weekend"
+act_data_weekdays$day <- as.factor(act_data_weekdays$day)
+ww_ints <- aggregate(act_data_weekdays$steps, list(act_data_weekdays$interval, act_data_weekdays$day), FUN = mean, na.rm = TRUE)
+colnames(ww_ints) <- c("interval","day","steps")
+ggplot(data=ww_ints) + geom_line(mapping=aes(x=interval, y=steps), color="blue") + facet_wrap(~day, ncol=1, nrow=2)
+```
+```{r, results = 'hide'}
+png("weekend_vs_weekday.png")
+ggplot(data=ww_ints) + geom_line(mapping=aes(x=interval, y=steps), color="blue") + facet_wrap(~day, ncol=1, nrow=2)
+dev.off()
+```
